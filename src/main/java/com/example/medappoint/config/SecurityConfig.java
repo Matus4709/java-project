@@ -5,6 +5,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 // Ten statyczny import jest najczystszą metodą odwołania się do konsoli H2
 import static org.springframework.boot.autoconfigure.security.servlet.PathRequest.toH2Console;
@@ -15,25 +17,26 @@ import static org.springframework.boot.autoconfigure.security.servlet.PathReques
 public class SecurityConfig {
 
     @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        // 1. Zezwól na wszystkie żądania do konsoli H2
                         .requestMatchers(toH2Console()).permitAll()
-
-                        // 2. Cała reszta żądań wymaga logowania (na razie)
+                        .requestMatchers("/api/register").permitAll()
                         .anyRequest().authenticated()
                 )
-                // 3. Włącz domyślny formularz logowania Springa
                 .formLogin(form -> form.loginPage("/login").permitAll());
 
-        // 4. Konfiguracja *wymagana* przez konsolę H2
-        // H2 Console działa w ramce (frame) i domyślnie Spring Security to blokuje
         http.csrf(csrf -> csrf
                 .ignoringRequestMatchers(toH2Console())
+                .ignoringRequestMatchers("/api/register")
         );
         http.headers(headers -> headers
-                .frameOptions(frameOptions -> frameOptions.disable()) // Wyłączamy 'X-Frame-Options' dla H2
+                .frameOptions(frameOptions -> frameOptions.disable())
         );
 
         return http.build();

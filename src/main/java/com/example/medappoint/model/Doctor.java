@@ -30,14 +30,14 @@ public class Doctor {
     @Column(nullable = false)
     private String specialization;
 
-    private String desctription;
+    private String description;
 
     @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "user_id", referencedColumnName = "id")
     private User user;
 
-    @OneToMany(mappedBy = "doctor",cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private Set<AvailableSlot> availableSlots ;
+    @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<AvailableSlot> availableSlots;
 
     @OneToMany(mappedBy = "doctor")
     private Set<Appointment> appointments;
