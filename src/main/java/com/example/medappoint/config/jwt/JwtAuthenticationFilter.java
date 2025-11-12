@@ -42,28 +42,33 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // Wyciągamy token (pomijając "Bearer ")
-        jwt = authHeader.substring(7);
-        userEmail = jwtService.extractUsername(jwt);
+        try {
+            // Wyciągamy token (pomijając "Bearer ")
+            jwt = authHeader.substring(7);
+            userEmail = jwtService.extractUsername(jwt);
 
-        // Jeśli mamy email z tokenu i użytkownik nie jest jeszcze "zalogowany" w kontekście Springa
-        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+            // Jeśli mamy email z tokenu i użytkownik nie jest jeszcze "zalogowany" w kontekście Springa
+            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
-            // Jeśli token jest poprawny
-            if (jwtService.isTokenValid(jwt, userDetails)) {
-                // Stwórz obiekt logowania dla Spring Security
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null, // Hasło nie jest potrzebne, mamy token
-                        userDetails.getAuthorities()
-                );
-                authToken.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
-                // Zapisz zalogowanego użytkownika w kontekście bezpieczeństwa
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                // Jeśli token jest poprawny
+                if (jwtService.isTokenValid(jwt, userDetails)) {
+                    // Stwórz obiekt logowania dla Spring Security
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null, // Hasło nie jest potrzebne, mamy token
+                            userDetails.getAuthorities()
+                    );
+                    authToken.setDetails(
+                            new WebAuthenticationDetailsSource().buildDetails(request)
+                    );
+                    // Zapisz zalogowanego użytkownika w kontekście bezpieczeństwa
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
             }
+        } catch (Exception e) {
+            // Jeśli token jest nieprawidłowy, po prostu kontynuujemy - użytkownik nie będzie uwierzytelniony
+            // Spring Security zwróci 403 jeśli endpoint wymaga autoryzacji
         }
         // Przekaż żądanie do kolejnego filtra
         filterChain.doFilter(request, response);
