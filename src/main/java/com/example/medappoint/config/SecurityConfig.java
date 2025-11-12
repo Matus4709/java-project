@@ -2,6 +2,7 @@ package com.example.medappoint.config;
 
 import com.example.medappoint.config.jwt.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -29,6 +30,9 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService; // Nasz UserDetailsServiceImpl
 
+    @Value("${spring.h2.console.enabled:false}")
+    private boolean h2ConsoleEnabled;
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -51,31 +55,46 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                // 1. Wyłączamy CSRF (nie jest potrzebne przy bezstanowym API z JWT)
-                .csrf(csrf -> csrf
-                        .ignoringRequestMatchers(toH2Console())
-                        .ignoringRequestMatchers("/api/auth/**") // Ignorujemy ścieżki logowania/rejestracji
-                )
-                // 2. Definiujemy "publiczne" i "prywatne" endpointy
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(toH2Console()).permitAll() // Zezwól na H2
-                        .requestMatchers("/api/auth/**").permitAll() // Zezwól na /api/auth/register i /api/auth/login
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll() // Zezwól na Swaggera
-                        .anyRequest().authenticated() // Wszystkie inne żądania muszą być uwierzytelnione
-                )
-                // 3. Ustawiamy zarządzanie sesją na "BEZSTANOWE" (STATELESS)
-                // Spring nie będzie tworzył sesji HTTP
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // 4. Mówimy Springowi, jakiego dostawcy uwierzytelniania ma użyć
-                .authenticationProvider(authenticationProvider())
-                // 5. Dodajemy nasz filtr JWT *przed* standardowym filtrem logowania
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+        // 1. Konfiguracja CSRF - wyłączamy dla wszystkich endpointów (bezstanowe API z JWT)
+        http.csrf(csrf -> csrf.disable());
 
-        // Wyłączenie ramki dla H2 (jak wcześniej)
-        http.headers(headers -> headers
-                .frameOptions(frameOptions -> frameOptions.disable())
-        );
+        // 2. Definiujemy "publiczne" i "prywatne" endpointy
+        http.authorizeHttpRequests(auth -> {
+            // Publiczne endpointy - muszą być przed .anyRequest()
+            if (h2ConsoleEnabled) {
+                auth.requestMatchers(toH2Console()).permitAll(); // Zezwól na H2
+            }
+            // Publiczne ścieżki - każda osobno dla pewności
+            auth.requestMatchers("/api/auth/**").permitAll()
+                    .requestMatchers("/swagger-ui/**").permitAll()
+                    .requestMatchers("/swagger-ui.html").permitAll()
+                    .requestMatchers("/swagger-ui/index.html").permitAll()
+                    .requestMatchers("/v3/api-docs").permitAll()
+                    .requestMatchers("/v3/api-docs/**").permitAll()
+                    .requestMatchers("/v3/api-docs.yaml").permitAll()
+                    .requestMatchers("/swagger-resources/**").permitAll()
+                    .requestMatchers("/webjars/**").permitAll()
+                    .requestMatchers("/favicon.ico").permitAll()
+                    .requestMatchers("/error").permitAll()
+                    .anyRequest().authenticated(); // Wszystkie inne żądania muszą być uwierzytelnione
+        });
+
+        // 3. Ustawiamy zarządzanie sesją na "BEZSTANOWE" (STATELESS)
+        // Spring nie będzie tworzył sesji HTTP
+        http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+
+        // 4. Mówimy Springowi, jakiego dostawcy uwierzytelniania ma użyć
+        http.authenticationProvider(authenticationProvider());
+
+        // 5. Dodajemy nasz filtr JWT *przed* standardowym filtrem logowania
+        http.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+        // Wyłączenie ramki dla H2 tylko jeśli H2 console jest włączone
+        if (h2ConsoleEnabled) {
+            http.headers(headers -> headers
+                    .frameOptions(frameOptions -> frameOptions.disable())
+            );
+        }
 
         return http.build();
     }

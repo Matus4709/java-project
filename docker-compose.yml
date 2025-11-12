@@ -1,0 +1,44 @@
+services:
+  # === Usługa 1: Baza Danych PostgreSQL ===
+  db:
+    image: postgres:15 # Użyj oficjalnego obrazu Postgresa
+    container_name: medappoint-db
+    environment:
+      # Te zmienne tworzą użytkownika i bazę danych przy pierwszym starcie kontenera
+      POSTGRES_DB: medappoint
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password # ❗️ WKLEJ TU SWOJE HASŁO z application-prod.properties
+    volumes:
+      - postgres-data:/var/lib/postgresql/data # To zapisuje dane bazy, nawet jak wyłączysz kontener
+    ports:
+      - "5432:5432" # Udostępnia port bazy na zewnątrz (opcjonalne, przydatne do debugowania)
+
+  # === Usługa 2: Nasza Aplikacja Spring Boot ===
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: medappoint-app:latest
+    container_name: medappoint-app
+    depends_on:
+      - db # Mówi Dockerowi: "Uruchom aplikację DOPIERO GDY baza 'db' będzie gotowa"
+    ports:
+      - "8080:8080" # Mapuje port 8080 "pudełka" na port 8080 Twojego komputera
+    environment:
+      # To jest magia: Te zmienne środowiskowe NADPISZĄ ustawienia z pliku .properties!
+
+      # Mówimy Springowi, żeby użył profilu 'prod' (który łączy się z Postgresem)
+      - SPRING_PROFILES_ACTIVE=prod
+
+      # Mówimy Springowi, gdzie jest baza danych.
+      # Zamiast 'localhost', używamy nazwy usługi 'db' zdefiniowanej wyżej!
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/medappoint
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=password # ❗️ WKLEJ TU SWOJE HASŁO (to samo co wyżej)
+
+      # Musimy też przekazać sekretny klucz JWT i czas wygaśnięcia
+      - SECURITY_JWT_SECRET_KEY=Y2hlZXNlZGlzY292ZXJ5ZmFybXBsYXRlc3Nob3JuZXh0c2FkZGxlbGF5cGE= # ❗️ WKLEJ TU SWÓJ KLUCZ JWT
+      - SECURITY_JWT_EXPIRATION_TIME=86400000 # 24 godziny w milisekundach
+
+volumes:
+  postgres-data: # Definiuje wolumen, o którym mowa wyżej
