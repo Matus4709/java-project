@@ -3,11 +3,15 @@ FROM maven:3.9-eclipse-temurin-17 AS builder
 
 WORKDIR /build
 
+# Copy pom.xml first for better Docker layer caching
 COPY pom.xml .
-RUN mvn dependency:go-offline
 
+# Copy source code
 COPY src ./src
-RUN mvn clean package -DskipTests
+
+# Build application (Maven will download dependencies automatically)
+# Using -U to force update of snapshots and releases
+RUN mvn clean package -DskipTests -U
 
 ############################
 FROM eclipse-temurin:17-jre
