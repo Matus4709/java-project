@@ -1,4 +1,4 @@
-"# Java - Projekt do nauki podstaw" 
+# Java - Projekt do nauki podstaw 
 
 ## 📋 Spis Treści
 
@@ -19,10 +19,13 @@
 - ✅ **Rejestracja pacjentów** - tworzenie nowych kont użytkowników
 - ✅ **Uwierzytelnianie JWT** - bezpieczne logowanie z tokenami JWT
 - ✅ **Zarządzanie lekarzami** - przeglądanie dostępnych lekarzy
-- ✅ **Rezerwacja wizyt** - system umożliwiający rezerwację terminów
+- ✅ **Zarządzanie slotami** - lekarze mogą tworzyć dostępne terminy wizyt
+- ✅ **Rezerwacja wizyt** - pacjenci mogą rezerwować dostępne sloty
 - ✅ **Role użytkowników** - różne poziomy dostępu (PACJENT, LEKARZ, ADMIN)
 - ✅ **RESTful API** - standardowe endpointy REST
 - ✅ **Dokumentacja Swagger** - interaktywna dokumentacja API
+- ✅ **Testy jednostkowe** - pokrycie testami serwisów biznesowych
+- ✅ **Inicjalizacja danych** - automatyczne tworzenie danych testowych przy starcie
 
 ## 🛠 Technologie
 
@@ -149,6 +152,19 @@ openssl rand -base64 32
 
 - `GET /api/doctors` - Lista dostępnych lekarzy
 
+### Sloty (wymaga autoryzacji: ROLE_DOCTOR)
+
+- `POST /api/slots` - Utworzenie nowego slotu czasowego (tylko dla lekarzy)
+  - Wymaga: token JWT z rolą DOCTOR
+  - Body: `SlotCreateDto` (startTime, endTime)
+
+### Wizyty (wymaga autoryzacji: ROLE_PATIENT)
+
+- `POST /api/appointments/{slotId}` - Rezerwacja wizyty na wybrany slot (tylko dla pacjentów)
+  - Wymaga: token JWT z rolą PATIENT
+  - Parametr: `slotId` (UUID slotu do rezerwacji)
+  - Zwraca: `AppointmentDto` z szczegółami wizyty
+
 ### Dokumentacja API
 
 - `GET /swagger-ui/index.html` - Interaktywna dokumentacja Swagger UI (główna strona)
@@ -162,19 +178,21 @@ openssl rand -base64 32
 src/
 ├── main/
 │   ├── java/com/example/medappoint/
-│   │   ├── config/              # Konfiguracja (Security, JWT)
-│   │   ├── controller/          # Kontrolery REST
+│   │   ├── config/              # Konfiguracja (Security, JWT, DataInitializer)
+│   │   ├── controller/          # Kontrolery REST (Auth, Doctor, Slot, Appointment)
 │   │   ├── dto/                 # Data Transfer Objects
 │   │   ├── exception/           # Obsługa wyjątków
-│   │   ├── model/               # Encje JPA
-│   │   │   └── enums/          # Enumeracje
+│   │   ├── model/               # Encje JPA (User, Patient, Doctor, Appointment, AvailableSlot)
+│   │   │   └── enums/          # Enumeracje (UserRole, AppointmentStatus)
 │   │   ├── repository/          # Repozytoria Spring Data
-│   │   └── service/            # Logika biznesowa
+│   │   └── service/            # Logika biznesowa (Auth, Doctor, Slot, Appointment, Patient)
 │   └── resources/
 │       ├── application.properties
 │       ├── application-dev.properties
 │       └── application-prod.properties
 └── test/                        # Testy jednostkowe
+    └── java/com/example/medappoint/
+        └── service/            # Testy serwisów (AppointmentService, SlotService, PatientService)
 ```
 
 ## 🔒 Bezpieczeństwo
@@ -238,11 +256,25 @@ Uruchomienie testów:
 mvn test
 ```
 
+### Pokrycie testami
+
+Projekt zawiera testy jednostkowe dla:
+- `AppointmentService` - testy rezerwacji wizyt (scenariusze sukcesu i błędów)
+- `SlotService` - testy tworzenia slotów
+- `PatientService` - testy rejestracji pacjentów
+
+Testy wykorzystują Mockito do izolacji jednostek testowych i weryfikacji zachowań.
+
 ## 📝 Uwagi
 
 - **Hasła i klucze**: Przed wdrożeniem na produkcję zmień wszystkie domyślne hasła i klucze JWT!
 - **DDL Strategy**: W prawdziwej produkcji użyj narzędzi do migracji bazy danych (Flyway/Liquibase) zamiast `spring.jpa.hibernate.ddl-auto=update`
 - **H2 Console**: Konsola H2 jest dostępna tylko w profilu `dev` ze względów bezpieczeństwa
+- **DataInitializer**: Przy starcie aplikacji automatycznie tworzone jest konto testowe lekarza:
+  - Email: `doctor@example.com`
+  - Hasło: `doctor123`
+  - Specjalizacja: Kardiolog
+- **Rezerwacja wizyt**: System automatycznie oznacza slot jako zajęty po udanej rezerwacji, zapobiegając podwójnym rezerwacjom
 
 ## 🤝 Wsparcie
 
